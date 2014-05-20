@@ -2,6 +2,8 @@ AirCounterControler_for_Arduino
 ===============================
 
 This is a Arduino code for to control a Air-Counter. Air-Counter is a kind of geiger-counter, reasonable.
+The information of "Air-Counter" is published in http://www.st-c.co.jp/air-counter/.
+
 To use, you need "AltSoftSerial" lib.
 visit and download it from follow URL.
 https://www.pjrc.com/teensy/td_libs_AltSoftSerial.html
