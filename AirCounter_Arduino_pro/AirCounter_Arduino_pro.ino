@@ -251,9 +251,10 @@ String parse(AltSoftSerial *_serial)
     long amount_of_radiation_mod = amount_of_radiation % 100l;
     ans = "pulse num.," + String(pulse_num, DEC) + ",amount of radiation," +
       String(amount_of_radiation_upper, DEC) +
-      "." +
-      String(amount_of_radiation_mod, DEC) + 
-      ",uSv/h";
+      ".";
+    if((amount_of_radiation_mod / 10l) == 0l)
+      ans += "0";
+    ans += String(amount_of_radiation_mod, DEC) + ",uSv/h";
   }
   else if(mode == mode_communication)
   {
