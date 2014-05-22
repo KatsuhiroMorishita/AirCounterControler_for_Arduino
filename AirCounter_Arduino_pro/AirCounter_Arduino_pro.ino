@@ -15,6 +15,7 @@
  *            作成されました。
  * license: MIT
  * port map:
+ *    D6 connect to VBAT port of air counter, remove battery into air-counter
  *    D7 connect to SW port of air counter
  *    D8 connect to Tx port of air counter
  *    D9 connect to Rx port of air counter
@@ -22,13 +23,16 @@
  * History: 
  *  2014-05-19 created.
  *  2014-05-20 debug...
+ *  2014-05-22 1) add power supply port function.
+ *             2) some bugs fixed.
  ********************************************************/
 #include <AltSoftSerial.h>             // see URL: 
 
 // serial and other
 AltSoftSerial mySerial;                // RX 8, TX 9
 long baudrate = 9600;
-const int pin_power = 7;
+const int pin_power = 6;
+const int pin_sw = 7;
 
 // measurement mode
 const char mode_lock = 0x00;
@@ -36,6 +40,7 @@ const char mode_lock_free = 0x01;          // 一定の時間の間、観測を�
 const char mode_communication = 0x02;      // 時間と放射線パルス数を出
 char mode = mode_lock_free;
 
+const char measurement_setting_ack_size[3] = {0, 8, 8};
 const unsigned int measurement_term = 120u; // 計測時間, mode == mode_lock_freeで有効. エアカウンターEXだと30秒、エアカウンターは120秒。
 
 
@@ -80,18 +85,19 @@ void clear_softserial_buffer(AltSoftSerial *_serial)
 // power on a air-counter
 void power_on()
 {
-  Serial.println("-- power on --");
   digitalWrite(pin_power, HIGH);
+  delay(500);
+  Serial.println("-- power on --");
+  digitalWrite(pin_sw, HIGH);
   delay(2000);
-  digitalWrite(pin_power, LOW);
+  digitalWrite(pin_sw, LOW);
+  delay(500);
 }
 
 // power off a air-counter
 void power_off()
 {
   Serial.println("-- power off --");
-  digitalWrite(pin_power, HIGH);
-  delay(5000);
   digitalWrite(pin_power, LOW);
 }
 
@@ -166,6 +172,8 @@ void send_measurement_setting(unsigned int term, AltSoftSerial *_serial)
   c3 = (term >>  4) & 0x0f;
   c4 = (term >>  0) & 0x0f;
   
+  clear_softserial_buffer(_serial);
+  
   Serial.println("-- measurement setting --");
   Serial.println((int)c1);
   Serial.println((int)c2);
@@ -186,7 +194,7 @@ void send_measurement_setting(unsigned int term, AltSoftSerial *_serial)
   TimeOut to;
   to.set_timeout(10000l);
   int count = 0;
-  while(count < 8 && to.is_timeout() == false)
+  while(count < measurement_setting_ack_size[mode] && to.is_timeout() == false)
   {
     if (_serial->available())
     {
@@ -274,8 +282,8 @@ String parse(AltSoftSerial *_serial)
         i %= _size;
       }
     }
-    int time = buff[0] * 16 + buff[1];
-    int pulse_num = buff[2] * 16 + buff[3];
+    int time = buff[0] * 256 + buff[1];
+    int pulse_num = buff[2] * 256 + buff[3];
     ans = "time," + String(time, DEC) + ",pulse num," + String(pulse_num, DEC);
   }
   return ans;
@@ -284,9 +292,11 @@ String parse(AltSoftSerial *_serial)
 
 
 // setup Arduino
+TimeOut to_loop;
 void setup()
 {
   pinMode(pin_power, OUTPUT);
+  pinMode(pin_sw, OUTPUT);
   
   Serial.begin(57600);
   while (!Serial) {
@@ -299,41 +309,41 @@ void setup()
   delay(2000);
   Serial.println("-- setup air counter --");
   power_on();
-  delay(2000);
   send_lockbit(mode, &mySerial);
   delay(500);
   read_lockbit(&mySerial);
   power_off();
-  delay(5000);
+  delay(1000);
   power_on();
-  delay(2000);
+  delay(1000);
   send_measurement_setting(measurement_term, &mySerial);
-  clear_softserial_buffer(&mySerial);
+  //clear_softserial_buffer(&mySerial);
   Serial.println("-- measurement start --");
-  /**/
+  to_loop.set_timeout(3000l);
 }
 
 // processing forever
-TimeOut to_loop;
 void loop()
 {
   if (mySerial.available())
   {
+    //Serial.println(mySerial.read());  // for debug
     Serial.println(parse(&mySerial));
     to_loop.set_timeout(3000l);
   }
   if (mySerial.overflow())
     Serial.println("-- over flow --");
 
+  // restart measurment
   if(to_loop.is_timeout())
   {
     Serial.println("-- time out in loop() --");
     if(mode == mode_communication)
     {
       power_off();
-      delay(2000);
+      delay(1000);
       power_on();
-      delay(2000);
+      delay(1000);
     }
     send_measurement_setting(measurement_term, &mySerial);
     to_loop.set_timeout(3000l);
