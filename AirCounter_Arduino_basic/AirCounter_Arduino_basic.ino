@@ -14,6 +14,8 @@
  *    D8 connect to Tx port of air counter
  *    D9 connect to Rx port of air counter
  *    D10 port is not available for softserial with AltSoftSerial
+ *    TEST1 port of air-counter is shorted to GND.
+ * memo:    you can use incorporated battery in air-counter.
  * History: 
  *  2014-05-19 created.
  ********************************************************/
